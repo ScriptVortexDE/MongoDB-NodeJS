@@ -1,0 +1,46 @@
+FROM node:24-bookworm-slim
+
+LABEL author="Darkmatter IT" maintainer="hi@darkmatter-it.de"
+LABEL org.opencontainers.image.source="https://github.com/darkmatter-it/yolks"
+LABEL org.opencontainers.image.description="Node.js 24 with MongoDB 8 for Pterodactyl"
+
+# Install dependencies
+RUN apt update && apt upgrade -y \
+    && apt install -y \
+        ca-certificates \
+        curl \
+        gnupg \
+        netcat-openbsd \
+        git \
+        sqlite3 \
+        python3 \
+        python3-pip \
+        ffmpeg \
+        iproute2 \
+        tzdata \
+        wget \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install MongoDB 8
+RUN curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+    gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg \
+    && echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/8.0 multiverse" | \
+    tee /etc/apt/sources.list.d/mongodb-org-8.0.list \
+    && apt update \
+    && apt install -y mongodb-org mongodb-mongosh \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common npm packages globally
+RUN npm install -g npm@latest typescript ts-node nodemon pm2
+
+# Setup user and directory
+RUN useradd -m -d /home/container -s /bin/bash container
+USER container
+ENV USER=container HOME=/home/container
+WORKDIR /home/container
+
+# Copy entrypoint
+COPY --chown=container:container ./entrypoint.sh /entrypoint.sh
+CMD [ "/bin/bash", "/entrypoint.sh" ]
